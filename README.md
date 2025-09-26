@@ -2,6 +2,8 @@
 
 A demo of a streaming analytics platform built with AIR web framework for Python.
 
+AIR repo: https://github.com/feldroy/air
+
 ## 📁 Project Structure
 
 ```
