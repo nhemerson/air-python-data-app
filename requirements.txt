@@ -1,0 +1,7 @@
+boring-semantic-layer
+ibis-framework
+pandas
+duckdb
+pyarrow
+air
+fastapi

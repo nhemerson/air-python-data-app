@@ -1,0 +1,16 @@
+[project]
+name = "air-python"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "air>=0.32.0",
+    "boring-semantic-layer>=0.1.10",
+    "duckdb>=1.4.0",
+    "fastapi[standard]>=0.117.1",
+    "ibis-framework>=10.8.0",
+    "pandas>=2.3.2",
+    "pyarrow>=21.0.0",
+    "pyarrow-hotfix>=0.7",
+]
