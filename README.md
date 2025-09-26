@@ -1,31 +1,6 @@
 # 📺 Streaming Data Analytics Dashboard
 
-A comprehensive streaming analytics platform built with Python, featuring real-time data visualization, semantic layer metrics, and an interactive web dashboard.
-
-## 🌟 Features
-
-### 📊 Interactive Dashboard
-- **Real-time Data Visualization**: Line charts showing daily completion rates and total watched hours
-- **Advanced Filtering**: Search and filter by show type, genre, state, and rating
-- **Sortable Data Table**: Click column headers to sort by any field
-- **Collapsible Interface**: Toggle table visibility for better UX
-- **Responsive Design**: Modern, mobile-friendly interface
-
-### 📈 Analytics Metrics
-Built using the [Boring Semantic Layer](https://github.com/boring-ml/boring-semantic-layer), the platform provides:
-
-1. **Watch Completion Rate by Content Type**: Analyze how different content types perform
-2. **User Engagement Score by Geographic Region**: Regional viewing patterns and engagement
-3. **Content Performance Index by Genre**: Multi-factor performance scoring
-4. **Peak Viewing Time Analysis**: Identify optimal viewing hours
-5. **Daily Completion Rate Trends**: Track completion rates over time
-
-### 🚀 Tech Stack
-- **Backend**: FastAPI for REST API endpoints
-- **Frontend**: Air framework for reactive web UI
-- **Data Processing**: Pandas + Ibis with DuckDB backend
-- **Analytics**: Boring Semantic Layer for metric definitions
-- **Visualization**: Chart.js for interactive charts
+A demo of a streaming analytics platform built with AIR web framework for Python.
 
 ## 📁 Project Structure
 
