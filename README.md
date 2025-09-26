@@ -1,4 +1,4 @@
-# 📺 Streaming Data Analytics Dashboard
+# Python Analytics Application using AIR
 
 A demo of a streaming analytics platform built with AIR web framework for Python.
 
