@@ -4,11 +4,42 @@ import os
 import asyncio
 import random
 import math
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from datetime import datetime
+from typing import Optional
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import StreamingResponse, JSONResponse
+from pydantic import BaseModel, Field, validator
 
 app = air.Air()
 api = FastAPI()
+
+# Pydantic Model for Feedback Form
+class StreamingFeedback(BaseModel):
+    user_id: str = Field(..., min_length=1, max_length=50, description="User ID")
+    show_name: str = Field(..., min_length=1, max_length=200, description="Show name")
+    rating: int = Field(..., ge=1, le=5, description="Rating from 1 to 5 stars")
+    comment: str = Field(..., min_length=10, max_length=500, description="Feedback comment")
+    
+    @validator('user_id')
+    def user_id_alphanumeric(cls, v):
+        if not v.replace('-', '').replace('_', '').isalnum():
+            raise ValueError('User ID must be alphanumeric (hyphens and underscores allowed)')
+        return v
+    
+    @validator('show_name')
+    def show_name_not_empty(cls, v):
+        if not v.strip():
+            raise ValueError('Show name cannot be empty or just whitespace')
+        return v.strip()
+    
+    @validator('comment')
+    def comment_meaningful(cls, v):
+        if len(v.strip()) < 10:
+            raise ValueError('Comment must be at least 10 characters long')
+        return v.strip()
+
+# In-memory storage for feedback (in production, use a database)
+feedback_storage = []
 
 # Load streaming data
 def load_streaming_data_json():
@@ -478,6 +509,210 @@ def streaming_data_table():
                     transition: width 0.2s ease;
                     border-radius: 3px;
                 }
+                
+                /* Feedback Form Section */
+                .feedback-section {
+                    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                    padding: 30px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                    margin-bottom: 30px;
+                    color: white;
+                }
+                .feedback-title {
+                    text-align: center;
+                    font-size: 24px;
+                    font-weight: bold;
+                    margin-bottom: 10px;
+                    color: white;
+                }
+                .feedback-subtitle {
+                    text-align: center;
+                    font-size: 14px;
+                    margin-bottom: 25px;
+                    color: rgba(255,255,255,0.9);
+                }
+                .feedback-container {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 30px;
+                    align-items: start;
+                }
+                @media (max-width: 968px) {
+                    .feedback-container {
+                        grid-template-columns: 1fr;
+                    }
+                }
+                .feedback-form-wrapper {
+                    background: white;
+                    padding: 25px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }
+                .form-title {
+                    font-size: 20px;
+                    font-weight: bold;
+                    color: #333;
+                    margin-bottom: 20px;
+                    text-align: center;
+                }
+                .form-group {
+                    margin-bottom: 20px;
+                }
+                .form-group label {
+                    display: block;
+                    font-weight: bold;
+                    color: #333;
+                    margin-bottom: 8px;
+                    font-size: 14px;
+                }
+                .form-group input,
+                .form-group textarea,
+                .form-group select {
+                    width: 100%;
+                    padding: 12px;
+                    border: 2px solid #ddd;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    font-family: Arial, sans-serif;
+                    transition: border-color 0.3s ease;
+                    box-sizing: border-box;
+                }
+                .form-group input:focus,
+                .form-group textarea:focus,
+                .form-group select:focus {
+                    outline: none;
+                    border-color: #f5576c;
+                    box-shadow: 0 0 0 3px rgba(245, 87, 108, 0.1);
+                }
+                .form-group textarea {
+                    min-height: 100px;
+                    resize: vertical;
+                }
+                .form-group .char-counter {
+                    font-size: 12px;
+                    color: #666;
+                    text-align: right;
+                    margin-top: 4px;
+                }
+                .submit-btn {
+                    width: 100%;
+                    background: linear-gradient(135deg, #f5576c, #f093fb);
+                    color: white;
+                    border: none;
+                    padding: 14px 24px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 16px;
+                    font-weight: bold;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+                }
+                .submit-btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+                }
+                .submit-btn:active {
+                    transform: translateY(0);
+                }
+                .submit-btn:disabled {
+                    background: #ccc;
+                    cursor: not-allowed;
+                    transform: none;
+                }
+                .form-message {
+                    padding: 12px;
+                    border-radius: 6px;
+                    margin-bottom: 15px;
+                    font-size: 14px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                .form-message.success {
+                    background: #d4edda;
+                    color: #155724;
+                    border: 1px solid #c3e6cb;
+                }
+                .form-message.error {
+                    background: #f8d7da;
+                    color: #721c24;
+                    border: 1px solid #f5c6cb;
+                }
+                .feedback-list-wrapper {
+                    background: white;
+                    padding: 25px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    max-height: 600px;
+                    overflow-y: auto;
+                }
+                .feedback-list-title {
+                    font-size: 20px;
+                    font-weight: bold;
+                    color: #333;
+                    margin-bottom: 20px;
+                    text-align: center;
+                }
+                .feedback-item {
+                    background: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 6px;
+                    margin-bottom: 15px;
+                    border-left: 4px solid #f5576c;
+                }
+                .feedback-item-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                }
+                .feedback-item-user {
+                    font-weight: bold;
+                    color: #333;
+                    font-size: 14px;
+                }
+                .feedback-item-rating {
+                    color: #f5576c;
+                    font-size: 16px;
+                }
+                .feedback-item-show {
+                    font-size: 14px;
+                    color: #666;
+                    margin-bottom: 8px;
+                    font-style: italic;
+                }
+                .feedback-item-comment {
+                    color: #333;
+                    font-size: 14px;
+                    line-height: 1.5;
+                }
+                .feedback-item-time {
+                    font-size: 12px;
+                    color: #999;
+                    margin-top: 8px;
+                    text-align: right;
+                }
+                .no-feedback {
+                    text-align: center;
+                    color: #666;
+                    font-style: italic;
+                    padding: 40px 20px;
+                }
+                .star-rating {
+                    display: flex;
+                    gap: 5px;
+                    margin-bottom: 8px;
+                }
+                .star {
+                    font-size: 24px;
+                    cursor: pointer;
+                    color: #ddd;
+                    transition: color 0.2s ease;
+                }
+                .star.active,
+                .star:hover {
+                    color: #ffc107;
+                }
             """)
         ),
         air.Body(
@@ -547,6 +782,103 @@ def streaming_data_table():
                     ),
                     
                     class_="interactive-section"
+                ),
+                
+                # Feedback Form Section (Pydantic + Forms Demo)
+                air.Div(
+                    air.Div("💬 User Feedback Form", class_="feedback-title"),
+                    air.Div("Submit feedback about your streaming experience! This showcases Air's Pydantic form validation.", class_="feedback-subtitle"),
+                    
+                    air.Div(
+                        # Left side - Form
+                        air.Div(
+                            air.Div("Submit Your Feedback", class_="form-title"),
+                            
+                            # Form message (hidden by default)
+                            air.Div(id="form-message", class_="form-message", style="display: none;"),
+                            
+                            # Form
+                            air.Form(
+                                air.Div(
+                                    air.Label("User ID *", for_="feedback-user-id"),
+                                    air.Input(
+                                        type="text",
+                                        id="feedback-user-id",
+                                        name="user_id",
+                                        placeholder="e.g., user-123",
+                                        required=True
+                                    ),
+                                    class_="form-group"
+                                ),
+                                
+                                air.Div(
+                                    air.Label("Show Name *", for_="feedback-show-name"),
+                                    air.Input(
+                                        type="text",
+                                        id="feedback-show-name",
+                                        name="show_name",
+                                        placeholder="What show did you watch?",
+                                        required=True
+                                    ),
+                                    class_="form-group"
+                                ),
+                                
+                                air.Div(
+                                    air.Label("Rating (1-5 stars) *", for_="feedback-rating"),
+                                    air.Div(
+                                        air.Span("★", class_="star", **{"data-value": "1", "onclick": "setRating(1)"}),
+                                        air.Span("★", class_="star", **{"data-value": "2", "onclick": "setRating(2)"}),
+                                        air.Span("★", class_="star", **{"data-value": "3", "onclick": "setRating(3)"}),
+                                        air.Span("★", class_="star", **{"data-value": "4", "onclick": "setRating(4)"}),
+                                        air.Span("★", class_="star", **{"data-value": "5", "onclick": "setRating(5)"}),
+                                        class_="star-rating",
+                                        id="star-rating"
+                                    ),
+                                    air.Input(
+                                        type="hidden",
+                                        id="feedback-rating",
+                                        name="rating",
+                                        value="0",
+                                        required=True
+                                    ),
+                                    class_="form-group"
+                                ),
+                                
+                                air.Div(
+                                    air.Label("Your Feedback * (10-500 characters)", for_="feedback-comment"),
+                                    air.Textarea(
+                                        id="feedback-comment",
+                                        name="comment",
+                                        placeholder="Tell us what you thought about the show...",
+                                        required=True,
+                                        oninput="updateCharCount()"
+                                    ),
+                                    air.Div("0 / 500 characters", class_="char-counter", id="char-counter"),
+                                    class_="form-group"
+                                ),
+                                
+                                air.Button("📤 Submit Feedback", type="submit", class_="submit-btn", id="submit-btn"),
+                                
+                                id="feedback-form",
+                                onsubmit="submitFeedback(event)"
+                            ),
+                            class_="feedback-form-wrapper"
+                        ),
+                        
+                        # Right side - Feedback List
+                        air.Div(
+                            air.Div("Recent Feedback", class_="feedback-list-title"),
+                            air.Div(
+                                air.Div("No feedback yet. Be the first to submit!", class_="no-feedback"),
+                                id="feedback-list"
+                            ),
+                            class_="feedback-list-wrapper"
+                        ),
+                        
+                        class_="feedback-container"
+                    ),
+                    
+                    class_="feedback-section"
                 ),
                 
                 # Filter Section
@@ -1092,10 +1424,154 @@ def streaming_data_table():
                     }
                 }
                 
+                // Feedback Form Functions
+                let selectedRating = 0;
+                
+                function setRating(rating) {
+                    selectedRating = rating;
+                    document.getElementById('feedback-rating').value = rating;
+                    
+                    // Update star display
+                    const stars = document.querySelectorAll('.star');
+                    stars.forEach((star, index) => {
+                        if (index < rating) {
+                            star.classList.add('active');
+                        } else {
+                            star.classList.remove('active');
+                        }
+                    });
+                }
+                
+                function updateCharCount() {
+                    const textarea = document.getElementById('feedback-comment');
+                    const counter = document.getElementById('char-counter');
+                    const length = textarea.value.length;
+                    counter.textContent = `${length} / 500 characters`;
+                    
+                    if (length > 500) {
+                        counter.style.color = '#dc3545';
+                    } else if (length < 10) {
+                        counter.style.color = '#999';
+                    } else {
+                        counter.style.color = '#4CAF50';
+                    }
+                }
+                
+                async function submitFeedback(event) {
+                    event.preventDefault();
+                    
+                    const form = document.getElementById('feedback-form');
+                    const formData = new FormData(form);
+                    const submitBtn = document.getElementById('submit-btn');
+                    const messageDiv = document.getElementById('form-message');
+                    
+                    // Validate rating
+                    if (selectedRating === 0) {
+                        showMessage('Please select a rating', 'error');
+                        return;
+                    }
+                    
+                    // Disable submit button
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = '⏳ Submitting...';
+                    
+                    try {
+                        const response = await fetch('/api/feedback', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            showMessage(data.message, 'success');
+                            form.reset();
+                            setRating(0);
+                            updateCharCount();
+                            
+                            // Reload feedback list
+                            loadFeedback();
+                        } else {
+                            showMessage('Validation Error: ' + data.errors, 'error');
+                        }
+                    } catch (error) {
+                        showMessage('Error submitting feedback. Please try again.', 'error');
+                    } finally {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = '📤 Submit Feedback';
+                    }
+                }
+                
+                function showMessage(message, type) {
+                    const messageDiv = document.getElementById('form-message');
+                    messageDiv.textContent = message;
+                    messageDiv.className = 'form-message ' + type;
+                    messageDiv.style.display = 'block';
+                    
+                    // Auto-hide success messages after 5 seconds
+                    if (type === 'success') {
+                        setTimeout(() => {
+                            messageDiv.style.display = 'none';
+                        }, 5000);
+                    }
+                }
+                
+                async function loadFeedback() {
+                    try {
+                        const response = await fetch('/api/feedback');
+                        const data = await response.json();
+                        
+                        const feedbackList = document.getElementById('feedback-list');
+                        
+                        if (data.total === 0) {
+                            feedbackList.innerHTML = '<div class="no-feedback">No feedback yet. Be the first to submit!</div>';
+                        } else {
+                            feedbackList.innerHTML = data.feedback.map(fb => `
+                                <div class="feedback-item">
+                                    <div class="feedback-item-header">
+                                        <span class="feedback-item-user">👤 ${escapeHtml(fb.user_id)}</span>
+                                        <span class="feedback-item-rating">${'⭐'.repeat(fb.rating)}</span>
+                                    </div>
+                                    <div class="feedback-item-show">📺 ${escapeHtml(fb.show_name)}</div>
+                                    <div class="feedback-item-comment">${escapeHtml(fb.comment)}</div>
+                                    <div class="feedback-item-time">${formatTimestamp(fb.timestamp)}</div>
+                                </div>
+                            `).join('');
+                        }
+                    } catch (error) {
+                        console.error('Error loading feedback:', error);
+                    }
+                }
+                
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
+                
+                function formatTimestamp(timestamp) {
+                    const date = new Date(timestamp);
+                    const now = new Date();
+                    const diffMs = now - date;
+                    const diffMins = Math.floor(diffMs / 60000);
+                    
+                    if (diffMins < 1) return 'Just now';
+                    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+                    
+                    const diffHours = Math.floor(diffMins / 60);
+                    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                    
+                    const diffDays = Math.floor(diffHours / 24);
+                    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                    
+                    return date.toLocaleDateString();
+                }
+                
                 // Initialize
                 document.addEventListener('DOMContentLoaded', function() {
                     initChart();
                     filterTable();
+                    loadFeedback();
                 });
             """)
         ),
@@ -1154,6 +1630,68 @@ async def stream_data_endpoint(num_points: int):
             "Connection": "keep-alive",
         }
     )
+
+@api.post("/feedback")
+async def submit_feedback(request: Request):
+    """
+    Handle feedback form submission with Pydantic validation.
+    Returns validation errors or success message.
+    """
+    try:
+        # Parse form data
+        form_data = await request.form()
+        
+        # Create feedback object with Pydantic validation
+        feedback = StreamingFeedback(
+            user_id=form_data.get('user_id', ''),
+            show_name=form_data.get('show_name', ''),
+            rating=int(form_data.get('rating', 0)),
+            comment=form_data.get('comment', '')
+        )
+        
+        # Add timestamp
+        feedback_dict = feedback.dict()
+        feedback_dict['timestamp'] = datetime.now().isoformat()
+        feedback_dict['id'] = len(feedback_storage) + 1
+        
+        # Store feedback
+        feedback_storage.append(feedback_dict)
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": "Thank you for your feedback!",
+                "feedback": feedback_dict
+            }
+        )
+    except ValueError as e:
+        # Pydantic validation errors
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "errors": str(e)
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "errors": str(e)
+            }
+        )
+
+@api.get("/feedback")
+def get_all_feedback():
+    """
+    Retrieve all submitted feedback.
+    """
+    return {
+        "total": len(feedback_storage),
+        "feedback": list(reversed(feedback_storage))  # Most recent first
+    }
 
 # Combining the Air and FastAPI apps into one
 app.mount("/api", api)
