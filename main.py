@@ -1,7 +1,11 @@
 import air
 import json
 import os
+import asyncio
+import random
+import math
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 
 app = air.Air()
 api = FastAPI()
@@ -361,6 +365,119 @@ def streaming_data_table():
                     height: 400px;
                     width: 100%;
                 }
+                
+                /* Interactive Streaming Section */
+                .interactive-section {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 30px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                    margin-bottom: 30px;
+                    color: white;
+                }
+                .interactive-title {
+                    text-align: center;
+                    font-size: 24px;
+                    font-weight: bold;
+                    margin-bottom: 10px;
+                    color: white;
+                }
+                .interactive-subtitle {
+                    text-align: center;
+                    font-size: 14px;
+                    margin-bottom: 25px;
+                    color: rgba(255,255,255,0.9);
+                }
+                .stream-controls {
+                    display: flex;
+                    gap: 20px;
+                    align-items: center;
+                    justify-content: center;
+                    flex-wrap: wrap;
+                    margin-bottom: 30px;
+                }
+                .stream-input-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                }
+                .stream-input-group label {
+                    font-weight: bold;
+                    font-size: 14px;
+                }
+                .stream-input-group input {
+                    padding: 12px 16px;
+                    border: 2px solid rgba(255,255,255,0.3);
+                    border-radius: 8px;
+                    font-size: 16px;
+                    width: 200px;
+                    background: rgba(255,255,255,0.95);
+                    color: #333;
+                }
+                .stream-input-group input:focus {
+                    outline: none;
+                    border-color: #4CAF50;
+                    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.3);
+                }
+                .stream-btn {
+                    background: linear-gradient(135deg, #4CAF50, #45a049);
+                    color: white;
+                    border: none;
+                    padding: 12px 32px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 16px;
+                    font-weight: bold;
+                    margin-top: 22px;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+                }
+                .stream-btn:hover {
+                    background: linear-gradient(135deg, #45a049, #3d8b40);
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+                }
+                .stream-btn:active {
+                    transform: translateY(0);
+                }
+                .stream-btn:disabled {
+                    background: #ccc;
+                    cursor: not-allowed;
+                    transform: none;
+                }
+                .stream-status {
+                    text-align: center;
+                    font-size: 14px;
+                    min-height: 24px;
+                    margin-bottom: 20px;
+                    font-weight: bold;
+                }
+                .stream-chart-wrapper {
+                    background: white;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }
+                .stream-chart-container {
+                    position: relative;
+                    height: 350px;
+                    width: 100%;
+                }
+                .progress-bar-container {
+                    width: 100%;
+                    height: 6px;
+                    background: rgba(255,255,255,0.3);
+                    border-radius: 3px;
+                    overflow: hidden;
+                    margin-bottom: 20px;
+                }
+                .progress-bar {
+                    height: 100%;
+                    background: linear-gradient(90deg, #4CAF50, #8BC34A);
+                    width: 0%;
+                    transition: width 0.2s ease;
+                    border-radius: 3px;
+                }
             """)
         ),
         air.Body(
@@ -386,6 +503,50 @@ def streaming_data_table():
                         class_="chart-section"
                     ),
                     class_="charts-section"
+                ),
+                
+                # Interactive Streaming Section
+                air.Div(
+                    air.Div("⚡ Real-Time Async Data Streaming", class_="interactive-title"),
+                    air.Div("Watch data points generate and stream in real-time! This showcases Air's async capabilities.", class_="interactive-subtitle"),
+                    
+                    # Progress Bar
+                    air.Div(
+                        air.Div(class_="progress-bar", id="stream-progress"),
+                        class_="progress-bar-container"
+                    ),
+                    
+                    # Controls
+                    air.Div(
+                        air.Div(
+                            air.Label("Number of Data Points (5-100)", for_="num-points-input"),
+                            air.Input(
+                                type="number",
+                                id="num-points-input",
+                                min="5",
+                                max="100",
+                                value="30",
+                                placeholder="Enter number of points"
+                            ),
+                            class_="stream-input-group"
+                        ),
+                        air.Button("🚀 Start Streaming", class_="stream-btn", id="stream-btn", onclick="startStreaming()"),
+                        class_="stream-controls"
+                    ),
+                    
+                    # Status
+                    air.Div("Enter a number and click 'Start Streaming' to begin", id="stream-status", class_="stream-status"),
+                    
+                    # Chart
+                    air.Div(
+                        air.Div(
+                            air.Canvas(id="streamChart"),
+                            class_="stream-chart-container"
+                        ),
+                        class_="stream-chart-wrapper"
+                    ),
+                    
+                    class_="interactive-section"
                 ),
                 
                 # Filter Section
@@ -528,6 +689,12 @@ def streaming_data_table():
                 let watchedHoursChartData = """ + json.dumps(watched_hours_chart_data) + """;
                 let completionChart = null;
                 let watchedHoursChart = null;
+                let streamChart = null;
+                let streamingData = {
+                    labels: [],
+                    data: []
+                };
+                let eventSource = null;
                 
                 // Initialize Charts
                 function initChart() {
@@ -623,6 +790,159 @@ def streaming_data_table():
                             }
                         }
                     });
+                    
+                    // Initialize Stream Chart
+                    const streamCtx = document.getElementById('streamChart').getContext('2d');
+                    streamChart = new Chart(streamCtx, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: 'Streamed Data Points',
+                                data: [],
+                                borderColor: 'rgb(102, 126, 234)',
+                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 4,
+                                pointHoverRadius: 6,
+                                pointBackgroundColor: 'rgb(102, 126, 234)',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: {
+                                duration: 300
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    title: {
+                                        display: true,
+                                        text: 'Value',
+                                        font: {
+                                            size: 14,
+                                            weight: 'bold'
+                                        }
+                                    },
+                                    grid: {
+                                        color: 'rgba(0, 0, 0, 0.05)'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Data Point Index',
+                                        font: {
+                                            size: 14,
+                                            weight: 'bold'
+                                        }
+                                    },
+                                    grid: {
+                                        color: 'rgba(0, 0, 0, 0.05)'
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top',
+                                    labels: {
+                                        font: {
+                                            size: 12,
+                                            weight: 'bold'
+                                        }
+                                    }
+                                },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return 'Value: ' + context.parsed.y.toFixed(2);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                // Stream data functionality
+                function startStreaming() {
+                    const numPoints = parseInt(document.getElementById('num-points-input').value);
+                    
+                    // Validate input
+                    if (isNaN(numPoints) || numPoints < 5 || numPoints > 100) {
+                        alert('Please enter a number between 5 and 100');
+                        return;
+                    }
+                    
+                    // Reset chart and data
+                    streamingData.labels = [];
+                    streamingData.data = [];
+                    streamChart.data.labels = [];
+                    streamChart.data.datasets[0].data = [];
+                    streamChart.update();
+                    
+                    // Reset progress bar
+                    document.getElementById('stream-progress').style.width = '0%';
+                    
+                    // Disable button during streaming
+                    const btn = document.getElementById('stream-btn');
+                    btn.disabled = true;
+                    btn.textContent = '⏳ Streaming...';
+                    
+                    // Update status
+                    document.getElementById('stream-status').textContent = 'Initializing stream...';
+                    
+                    // Close existing connection if any
+                    if (eventSource) {
+                        eventSource.close();
+                    }
+                    
+                    // Create new EventSource connection
+                    eventSource = new EventSource(`/api/stream-data/${numPoints}`);
+                    
+                    eventSource.onmessage = function(event) {
+                        const data = JSON.parse(event.data);
+                        
+                        if (data.complete) {
+                            // Streaming complete
+                            eventSource.close();
+                            btn.disabled = false;
+                            btn.textContent = '🚀 Start Streaming';
+                            document.getElementById('stream-status').textContent = 
+                                `✅ Streaming complete! Generated ${numPoints} data points.`;
+                            document.getElementById('stream-progress').style.width = '100%';
+                        } else {
+                            // Add new data point
+                            streamChart.data.labels.push(data.x);
+                            streamChart.data.datasets[0].data.push(data.y);
+                            streamChart.update('none'); // Update without animation for smooth streaming
+                            
+                            // Update progress bar
+                            document.getElementById('stream-progress').style.width = data.progress + '%';
+                            
+                            // Update status
+                            document.getElementById('stream-status').textContent = 
+                                `📊 Streaming... ${data.index + 1}/${data.total} points (${data.progress}%)`;
+                        }
+                    };
+                    
+                    eventSource.onerror = function(error) {
+                        console.error('EventSource error:', error);
+                        eventSource.close();
+                        btn.disabled = false;
+                        btn.textContent = '🚀 Start Streaming';
+                        document.getElementById('stream-status').textContent = 
+                            '❌ Error during streaming. Please try again.';
+                    };
                 }
                 
                 function filterTable() {
@@ -788,6 +1108,52 @@ def api_root():
 @api.get("/data")
 def get_streaming_data():
     return load_streaming_data_json()
+
+# Async streaming endpoint for progressive data generation
+async def generate_progressive_data(num_points: int):
+    """
+    Progressively generate data points with simulated computation delay.
+    This demonstrates Air's async/streaming capabilities.
+    """
+    for i in range(num_points):
+        # Simulate some computation time
+        await asyncio.sleep(0.3)  # 100ms delay between points
+        
+        # Generate interesting data using sine wave with some randomness
+        x = i
+        y = 50 + 30 * math.sin(i * .2) + random.uniform(-5, 5)
+        
+        # Stream as Server-Sent Events format
+        data = {
+            'index': i,
+            'x': x,
+            'y': round(y, 2),
+            'total': num_points,
+            'progress': round((i + 1) / num_points * 100, 1)
+        }
+        
+        yield f"data: {json.dumps(data)}\n\n"
+    
+    # Send completion signal
+    yield f"data: {json.dumps({'complete': True})}\n\n"
+
+@api.get("/stream-data/{num_points}")
+async def stream_data_endpoint(num_points: int):
+    """
+    Endpoint that streams data progressively to showcase async capabilities.
+    User specifies how many data points to generate.
+    """
+    # Limit to reasonable range
+    num_points = max(5, min(num_points, 100))
+    
+    return StreamingResponse(
+        generate_progressive_data(num_points),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
 
 # Combining the Air and FastAPI apps into one
 app.mount("/api", api)
